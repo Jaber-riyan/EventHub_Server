@@ -38,7 +38,7 @@ eventsRouter.post("/create-event", async (req: Request, res: Response) => {
     }
 })
 
-// Get All Notes 
+// Get All Events 
 eventsRouter.get("/", async (req: Request, res: Response) => {
     try {
         const userId = req.query.userId as string;
@@ -87,6 +87,50 @@ eventsRouter.get("/", async (req: Request, res: Response) => {
     catch (error: any) {
         res.json({
             status: false,
+            error: error.message
+        });
+    }
+})
+
+// Get Features Events
+eventsRouter.get("/features-events", async (req: Request, res: Response) => {
+    try {
+        const events = await Event.aggregate([
+            {
+                $sort: {
+                    dateAndTime: 1
+                }
+            },
+            {
+                $lookup: {
+                    from: "joinevents",
+                    localField: "_id",
+                    foreignField: "event",
+                    as: "joinedUsers",
+                },
+            },
+            {
+                $project: {
+                    eventTitle: 1,
+                    name: 1,
+                    dateAndTime: 1,
+                    location: 1,
+                    description: 1,
+                    attendeeCount: 1,
+                    joined: 1,
+                    joinedUsers:1
+                },
+            },
+        ])
+
+        res.status(200).json({
+            success: true,
+            events
+        })
+    }
+    catch (error: any) {
+        res.json({
+            success: false,
             error: error.message
         });
     }
