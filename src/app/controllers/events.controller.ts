@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { createEventZodSchema, joinEventZodSchema } from '../zodSchemas/event.zod';
+import { createEventZodSchema, joinEventZodSchema, updateEventZodSchema } from '../zodSchemas/event.zod';
 import { Event, JoinEvent } from '../models/events.model';
 import mongoose from 'mongoose';
 
@@ -37,7 +37,6 @@ eventsRouter.post("/create-event", async (req: Request, res: Response) => {
         });
     }
 })
-
 
 // Get All Notes 
 eventsRouter.get("/", async (req: Request, res: Response) => {
@@ -138,43 +137,116 @@ eventsRouter.post("/join", async (req: Request, res: Response) => {
 });
 
 
-// // Get Single Note
-// notesRouter.get("/:noteId", async (req: Request, res: Response) => {
-//     const noteId = req.params.noteId
+// Get Single Event
+eventsRouter.get("/:name", async (req: Request, res: Response) => {
+    try {
+        const userName = req.params.name
 
-//     const note = await Note.findById(noteId)
+        const events = await Event.find({ name: userName })
 
-//     res.status(200).json({
-//         status: true,
-//         note,
-//         isPinned: note?.isPinned() ? "This note is pinned" : "Not pinned"
-//     })
-// })
-
-
-// // Delete Single Note
-// notesRouter.delete("/:noteId", async (req: Request, res: Response) => {
-//     const noteId = req.params.noteId
-
-//     const note = await Note.findByIdAndDelete(noteId)
-
-//     res.status(200).json({
-//         status: true,
-//         note
-//     })
-// })
+        res.status(200).json({
+            success: true,
+            events,
+        })
+    }
+    catch (error: any) {
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong",
+            error: error.message,
+        });
+    }
+})
 
 
-// // Update Single Note
-// notesRouter.patch("/:noteId", async (req: Request, res: Response) => {
-//     const noteId = req.params.noteId
-//     const updatedBody = req.body
+// Delete Single Event
+eventsRouter.delete("/:eventId", async (req: Request, res: Response) => {
+    try {
+        const { eventId } = req.params;
 
-//     const note = await Note.findByIdAndUpdate(noteId, updatedBody, { new: true })
+        if (!mongoose.Types.ObjectId.isValid(eventId)) {
+            res.status(400).json({
+                success: false,
+                message: "Invalid event ID",
+            });
+            return
+        }
 
-//     res.status(200).json({
-//         status: true,
-//         note
-//     })
-// })
+        const deletedEvent = await Event.findByIdAndDelete(eventId);
+        await JoinEvent.deleteMany({ event: eventId })
+
+        if (!deletedEvent) {
+            res.status(404).json({
+                success: false,
+                message: "Event not found",
+            });
+            return
+        }
+
+        // ✅ Success response
+        res.status(200).json({
+            success: true,
+            message: "Event deleted successfully",
+            data: deletedEvent,
+        });
+    }
+    catch (error: any) {
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong",
+            error: error.message,
+        });
+    }
+})
+
+
+// Update Single Event
+eventsRouter.patch("/:eventId", async (req: Request, res: Response) => {
+    try {
+        const eventId = req.params.eventId
+        const updatedBody = req.body
+
+        if (!mongoose.Types.ObjectId.isValid(eventId)) {
+            res.status(400).json({
+                success: false,
+                message: "Invalid event ID",
+            });
+            return
+        }
+
+        const parsed = updateEventZodSchema.safeParse(updatedBody)
+        if (!parsed.success) {
+            res.status(400).json({
+                success: false,
+                message: "Validation error",
+                error: parsed.error?.format(),
+            });
+            return
+        }
+
+        const updateEvent = await Event.findByIdAndUpdate(eventId, updatedBody, { new: true })
+
+        if (!updateEvent) {
+            res.status(404).json({
+                success: false,
+                message: "Event not found",
+            });
+            return
+        }
+
+        // ✅ Success response
+        res.status(200).json({
+            success: true,
+            message: "Event Update successfully",
+            data: updateEvent,
+        });
+    }
+    catch (error: any) {
+        res.status(500).json({
+            success: false,
+            message: "Something went wrong",
+            error: error.message,
+        });
+    }
+})
 
